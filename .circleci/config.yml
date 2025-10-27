@@ -1,0 +1,54 @@
+# .circleci/config.yml
+version: 2.1
+
+# Определяем переиспользуемые команды
+commands:
+  setup-environment:
+    description: "Настройка окружения и кэширования"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "requirements.txt" }}
+            - v1-dependencies-
+      - run:
+          name: Install dependencies
+          command: |
+            pip install -r requirements.txt
+      - save_cache:
+          paths:
+            - /home/circleci/.cache/pip
+          key: v1-dependencies-{{ checksum "requirements.txt" }}
+
+# Определяем задания (jobs)
+jobs:
+  test:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - setup-environment
+      - run:
+          name: Run tests
+          command: pytest -v
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+          destination: test-results
+
+  lint:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - setup-environment
+      - run:
+          name: Check code formatting with Black
+          command: black --check --diff .
+
+# Оркестрация workflow
+workflows:
+  version: 2
+  test-and-lint:
+    jobs:
+      - test
+      - lint
